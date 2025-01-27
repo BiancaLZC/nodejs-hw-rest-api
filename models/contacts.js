@@ -1,57 +1,62 @@
-const fs = require("fs/promises");
+const { Schema, model } = require("mongoose");
 
-const { nanoid } = require("nanoid");
+const { handleMongooseError } = require("../helpers");
 
-const path = require("path");
+const Joi = require("joi");
+// validate body
+const addSchema = Joi.object({
+  name: Joi.string()
+    .min(6)
+    .required()
+    .messages({ "any.required": "missing required name field" }),
+  email: Joi.string()
+    .min(6)
+    .required()
+    .messages({ "any.required": "missing required email field" }),
+  phone: Joi.string()
+    .required()
+    .min(6)
+    .messages({ "any.required": "missing required phone field" }),
+  favorite: Joi.boolean(),
+});
 
-const contactsPath = path.join(__dirname, "./contacts.json");
+const updateFavoriteSchema = Joi.object({
+  favorite: Joi.boolean()
+    .required()
+    .messages({ "any.required": "missing field favorite" }),
+});
 
-
-const listContacts = async () => {
-  const allContacts = await fs.readFile(contactsPath);
-  
-  return JSON.parse(allContacts);
+const schemas = {
+  addSchema,
+  updateFavoriteSchema,
 };
 
-const getContactById = async (contactId) => {
-  const allContacts = await listContacts();
-  const result = allContacts.find((contact) => contact.id === contactId);
-  return result || null;
-};
+// validate data when save in db
+const contactsSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+    },
+    favorite: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { versionKey: false, timestamps: true }
+);
 
-const removeContact = async (contactId) => {
-  const allContacts = await listContacts();
-  const index = allContacts.findIndex((contact) => contact.id === contactId);
-  if (index === -1) return null;
-  const [deletedContact] = allContacts.splice(index, 1);
-  await fs.writeFile(contactsPath, JSON.stringify(allContacts, null, 2));
-  return deletedContact;
-};
+// Throwing a 400 error on an invalid field
+contactsSchema.post("save", handleMongooseError);
 
-const addContact = async (body) => {
-  const allContacts = await listContacts();
-  const newContact = {
-    id: nanoid(),
-    ...body,
-  };
-  allContacts.push(newContact);
-  await fs.writeFile(contactsPath, JSON.stringify(allContacts, null, 2));
-  return newContact;
-};
+const Contact = model("contact", contactsSchema);
 
-const updateContact = async (contactId, body) => {
-  const allContacts = await listContacts();
-  const index = allContacts.findIndex((contact) => contact.id === contactId);
-  if (index === -1) return null;
-  allContacts[index] = { id: contactId, ...body };
-  await fs.writeFile(contactsPath, JSON.stringify(allContacts, null, 2));
-  return allContacts[index];
-};
-
-module.exports = {
-  listContacts,
-  getContactById,
-  removeContact,
-  addContact,
-  updateContact,
-};
+module.exports = { Contact, schemas };
