@@ -10,7 +10,7 @@ const fs = require("fs/promises");
 
 require("dotenv").config();
 
-const Jimp = require("jimp");
+const Jimp = require("jimp").default || require("jimp");
 
 const avatarsDir = path.join(__dirname, "../", "public", "avatars");
 
@@ -115,25 +115,38 @@ const updateUserSubscription = async (req, res) => {
 };
 
 const updateAvatar = async (req, res) => {
-  const { _id } = req.user;
-  if (!req.file) {
-    res.status(400).json("File upload error");
+  try {
+    const { _id } = req.user;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "File upload error" });
+    }
+
+    const { path: tempUpload, originalname } = req.file;
+    const fileName = `${_id}_${originalname}`;
+    const resultDir = path.join(avatarsDir, fileName);
+
+    
+    await fs.rename(tempUpload, resultDir);
+
+    
+    const image = await Jimp.read(resultDir);
+    await image.resize(250, 250).writeAsync(resultDir);
+
+    console.log("Image processed successfully!");
+
+   
+    const avatarURL = `/avatars/${fileName}`;
+
+    
+    await User.findByIdAndUpdate(_id, { avatarURL });
+
+    
+    res.status(200).json({ avatarURL });
+  } catch (error) {
+    console.error("Update avatar error:", error);
+    res.status(500).json({ error: "Image processing failed" });
   }
-  const { path: tempUpload, originalname } = req.file;
-
-  const fileName = `${_id}_${originalname}`;
-  const resultDir = path.join(avatarsDir, fileName);
-  await fs.rename(tempUpload, resultDir);
-
-  const image = await Jimp.read(resultDir);
-  image.resize(250, 250).write(resultDir);
-
-  const avatarURL = path.join("avatars", fileName);
-  await User.findByIdAndUpdate(_id, { avatarURL });
-
-  res.status(200).json({
-    avatarURL,
-  });
 };
 
 module.exports = {
