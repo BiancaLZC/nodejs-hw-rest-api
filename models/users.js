@@ -2,9 +2,7 @@ const { Schema, model } = require("mongoose");
 const { handleMongooseError } = require("../helpers");
 const Joi = require("joi");
 
-const emailRegExp = /^\w+([-]?\w+)*@\w+([-]?\w+)*(\.\w{2,3})+$/;
-
-// validate user's field
+const emailRegExp = /^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/;
 
 const registerSchema = Joi.object({
   email: Joi.string()
@@ -16,6 +14,7 @@ const registerSchema = Joi.object({
     .required()
     .min(6)
     .messages({ "any.required": "missing required password field" }),
+  
 });
 
 const loginSchema = Joi.object({
@@ -30,7 +29,16 @@ const loginSchema = Joi.object({
     .messages({ "any.required": "missing required password field" }),
 });
 
-// mongoose user model validate
+const emailSchema = Joi.object({
+  email: Joi.string()
+    .min(6)
+    .required()
+    .pattern(emailRegExp)
+    .messages({"any.required":"missing required email field"
+    })
+})
+
+
 const userSchema = new Schema(
   {
     password: {
@@ -52,6 +60,18 @@ const userSchema = new Schema(
       type: String,
       default: "",
     },
+    avatarURL: {
+      type: String,
+      required: true,
+    },
+    verify: {
+      type: Boolean,
+      default: false,
+    },
+    verificationToken: {
+      type: String,
+      required: [true, "Verify token is required"],
+    },
   },
   { versionKey: false, timestamps: false }
 );
@@ -59,6 +79,7 @@ const userSchema = new Schema(
 const schemas = {
   registerSchema,
   loginSchema,
+  emailSchema,
 };
 
 userSchema.post("save", handleMongooseError);
